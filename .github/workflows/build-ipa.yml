@@ -1,0 +1,164 @@
+name: Build IPA
+
+# Builds Loupe into an .ipa on GitHub's macOS runners.
+#
+#   unsigned  — always runs, no secrets. Uploads Loupe-unsigned.ipa as an artifact;
+#               sign + install it with AltStore / Sideloadly (your Apple ID).
+#   signed    — runs only when repo variable ENABLE_SIGNED_BUILD == 'true' and the
+#               signing secrets are set. Produces an install-ready, code-signed .ipa.
+#
+# Assumes the repository root IS the Loupe project (project.yml at root).
+# Drop FridaGadget.dylib into Resources/FridaGadget/ (committed) OR set the
+# FRIDA_GADGET_URL secret to a gzipped frida-gadget-*-ios-universal.dylib.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  unsigned:
+    name: Unsigned IPA
+    runs-on: macos-14   # bump to the image that ships Xcode 27 when available
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          # Pin to Xcode 27 once GitHub runners offer it, e.g.:
+          #   sudo xcode-select -s /Applications/Xcode_27.app
+          sudo xcode-select -p
+          xcodebuild -version
+
+      - name: Install toolchain (xcodegen, cbindgen, Rust iOS targets)
+        run: |
+          brew install xcodegen cbindgen
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+
+      - name: Ensure FridaGadget.dylib
+        env:
+          FRIDA_GADGET_URL: ${{ secrets.FRIDA_GADGET_URL }}
+        run: |
+          G="Resources/FridaGadget/FridaGadget.dylib"
+          if [ ! -f "$G" ]; then
+            if [ -n "$FRIDA_GADGET_URL" ]; then
+              curl -L "$FRIDA_GADGET_URL" -o "$G.gz" && gunzip -f "$G.gz"
+            else
+              echo "::warning::FridaGadget.dylib missing — building an IPA without the hook binary (UI only; instrumentation inert). Commit it or set FRIDA_GADGET_URL to include it."
+            fi
+          fi
+          cp Sources/Instrument/hooks/interceptor.js Resources/FridaGadget/interceptor.js || true
+
+      - name: Build Rust FFI (idevice -> LoupeFFI.xcframework)
+        run: ./build-rust.sh
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Archive (no signing)
+        run: |
+          xcodebuild archive \
+            -project Loupe.xcodeproj -scheme Loupe \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Loupe.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Package Payload .ipa
+        run: |
+          APP="$(find build/Loupe.xcarchive/Products/Applications -maxdepth 1 -name '*.app' | head -n1)"
+          mkdir -p build/Payload && cp -R "$APP" build/Payload/
+          (cd build && zip -qr Loupe-unsigned.ipa Payload)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Loupe-unsigned-ipa
+          path: build/Loupe-unsigned.ipa
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  signed:
+    name: Signed IPA
+    # Enable by setting repo variable ENABLE_SIGNED_BUILD=true (Settings → Secrets
+    # and variables → Actions → Variables) and the secrets referenced below.
+    if: ${{ vars.ENABLE_SIGNED_BUILD == 'true' }}
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: xcodebuild -version
+
+      - name: Install toolchain
+        run: |
+          brew install xcodegen cbindgen
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+
+      - name: Import signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.BUILD_CERTIFICATE_P12_BASE64 }}
+          p12-password: ${{ secrets.BUILD_CERTIFICATE_PASSWORD }}
+
+      - name: Install provisioning profile
+        env:
+          PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/loupe.mobileprovision
+
+      - name: Ensure FridaGadget.dylib
+        env:
+          FRIDA_GADGET_URL: ${{ secrets.FRIDA_GADGET_URL }}
+        run: |
+          G="Resources/FridaGadget/FridaGadget.dylib"
+          if [ ! -f "$G" ]; then
+            if [ -n "$FRIDA_GADGET_URL" ]; then
+              curl -L "$FRIDA_GADGET_URL" -o "$G.gz" && gunzip -f "$G.gz"
+            else
+              echo "::warning::FridaGadget.dylib missing — building without the hook binary."
+            fi
+          fi
+          cp Sources/Instrument/hooks/interceptor.js Resources/FridaGadget/interceptor.js || true
+
+      - name: Inject Team ID into project.yml
+        run: |
+          /usr/bin/sed -i '' "s/YOUR_TEAM_ID/${TEAM_ID}/g" project.yml
+          /usr/bin/sed -i '' "s/YOUR_TEAM_ID/${TEAM_ID}/g" Tools/ExportOptions.plist
+
+      - name: Build Rust FFI
+        run: ./build-rust.sh
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Archive (signed)
+        run: |
+          xcodebuild archive \
+            -project Loupe.xcodeproj -scheme Loupe \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Loupe.xcarchive \
+            DEVELOPMENT_TEAM="${TEAM_ID}"
+
+      - name: Export signed .ipa
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/Loupe.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist Tools/ExportOptions.plist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Loupe-signed-ipa
+          path: build/ipa/*.ipa
+          if-no-files-found: error

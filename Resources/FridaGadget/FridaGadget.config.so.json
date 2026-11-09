@@ -1,0 +1,7 @@
+{
+  "interaction": {
+    "type": "script",
+    "path": "@executable_path/Frameworks/interceptor.js",
+    "on_change": "reload"
+  }
+}

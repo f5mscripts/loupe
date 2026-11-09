@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Loupe</string>
+    <key>CFBundleDisplayName</key>
+    <string>Loupe</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>UILaunchScreen</key>
+    <dict/>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+    </dict>
+
+    <!-- Loupe connects to the in-app gadget over loopback (NWConnection to 127.0.0.1). -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Loupe connects to the in-app instrumentation hook on this device over the loopback interface to inspect and edit your app's own traffic.</string>
+
+    <!-- Allows the DocumentPicker to import a pairing file. -->
+    <key>UISupportsDocumentBrowser</key>
+    <false/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
+
+    <key>UIFileSharingEnabled</key>
+    <true/>
+</dict>
+</plist>

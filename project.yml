@@ -1,0 +1,55 @@
+name: Loupe
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "27.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    # Set these to your paid-account values (or move to an .xcconfig):
+    DEVELOPMENT_TEAM: "YOUR_TEAM_ID"
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+
+packages: {}
+
+targets:
+  Loupe:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Resources
+        buildPhase: resources
+      # The Frida hook script ships inside the app so the gadget can load it by path.
+      - path: Sources/Instrument/hooks/interceptor.js
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.loupe
+        INFOPLIST_FILE: Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Resources/Loupe.entitlements
+        # Vend the Rust FFI xcframework (produced by build-rust.sh).
+        FRAMEWORK_SEARCH_PATHS:
+          - $(inherited)
+          - $(PROJECT_DIR)/build/xcframework
+        OTHER_LDFLAGS:
+          - $(inherited)
+    dependencies:
+      # Built by ./build-rust.sh before `xcodegen generate` / archiving.
+      - framework: build/xcframework/LoupeFFI.xcframework
+        embed: true
+        codeSign: true
+    # Make the Rust build a pre-action so Xcode rebuilds the FFI as needed.
+    preBuildScripts:
+      - name: Build Rust FFI (idevice)
+        script: |
+          if [ ! -d "$PROJECT_DIR/build/xcframework/LoupeFFI.xcframework" ]; then
+            "$PROJECT_DIR/build-rust.sh"
+          fi
+        basedOnDependencyAnalysis: false

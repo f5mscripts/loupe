@@ -1,0 +1,126 @@
+# Codemagic CI/CD for Loupe.
+#
+# Two workflows:
+#   loupe-unsigned  — no credentials needed. Produces an unsigned Payload .ipa you
+#                     re-sign + install with AltStore / Sideloadly (uses YOUR Apple ID).
+#                     Use this to get a buildable artifact immediately.
+#   loupe-signed    — uses Codemagic's App Store Connect integration + automatic
+#                     signing to produce an install-ready, code-signed .ipa.
+#
+# Both compile the Rust FFI (idevice -> LoupeFFI.xcframework), generate the Xcode
+# project with xcodegen, and build. Drop FridaGadget.dylib into Resources/FridaGadget/
+# (committed, or fetched in a script step) or the app is missing the hook binary.
+#
+# Docs: https://docs.codemagic.io/yaml-quick-start/building-a-native-ios-app/
+
+definitions:
+  # Shared setup: toolchain + Rust FFI + project generation.
+  scripts:
+    - &install_tools
+      name: Install xcodegen, cbindgen, Rust iOS targets
+      script: |
+        brew install xcodegen cbindgen
+        rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+    - &fetch_gadget
+      name: Ensure FridaGadget.dylib is present
+      script: |
+        GADGET="Resources/FridaGadget/FridaGadget.dylib"
+        if [ ! -f "$GADGET" ]; then
+          echo "FridaGadget.dylib not committed."
+          if [ -n "${FRIDA_GADGET_URL:-}" ]; then
+            echo "Downloading from FRIDA_GADGET_URL…"
+            curl -L "$FRIDA_GADGET_URL" -o "$GADGET.gz" && gunzip -f "$GADGET.gz"
+          else
+            echo "!! Set FRIDA_GADGET_URL (a frida-gadget-*-ios-universal.dylib.gz) or commit the dylib." >&2
+            exit 1
+          fi
+        fi
+        cp Sources/Instrument/hooks/interceptor.js Resources/FridaGadget/interceptor.js || true
+    - &build_rust
+      name: Build Rust FFI (idevice -> LoupeFFI.xcframework)
+      script: ./build-rust.sh
+    - &gen_project
+      name: Generate Xcode project
+      script: xcodegen generate
+
+workflows:
+  # ---------------------------------------------------------------------------
+  loupe-unsigned:
+    name: Loupe — unsigned .ipa (sideload)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest   # pin to 27 once available on Codemagic
+      vars:
+        # Optional: URL to a gzipped iOS frida gadget if you don't commit the dylib.
+        FRIDA_GADGET_URL: ""
+    scripts:
+      - *install_tools
+      - *fetch_gadget
+      - *build_rust
+      - *gen_project
+      - name: Archive without signing
+        script: |
+          xcodebuild archive \
+            -project Loupe.xcodeproj -scheme Loupe \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Loupe.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+      - name: Package Payload .ipa
+        script: |
+          APP="$(find build/Loupe.xcarchive/Products/Applications -maxdepth 1 -name '*.app' | head -n1)"
+          mkdir -p build/Payload && cp -R "$APP" build/Payload/
+          (cd build && zip -qr Loupe-unsigned.ipa Payload && rm -rf Payload)
+    artifacts:
+      - build/Loupe-unsigned.ipa
+      - build/xcframework/LoupeFFI.xcframework
+      - /tmp/xcodebuild_logs/*.log
+
+  # ---------------------------------------------------------------------------
+  loupe-signed:
+    name: Loupe — signed .ipa
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      # Create an App Store Connect API key integration in Codemagic (Team settings
+      # -> Integrations) and put its name here.
+      app_store_connect: Loupe ASC Key
+    environment:
+      xcode: latest   # pin to 27 once available on Codemagic
+      ios_signing:
+        distribution_type: development   # or ad_hoc for registered-device builds
+        bundle_identifier: com.example.loupe
+      groups:
+        - loupe_signing   # must define CERTIFICATE_PRIVATE_KEY (see docs link above)
+      vars:
+        BUNDLE_ID: "com.example.loupe"
+        FRIDA_GADGET_URL: ""
+    scripts:
+      - *install_tools
+      - *fetch_gadget
+      - name: Fetch signing files + set up keychain
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_DEVELOPMENT --create
+          keychain add-certificates
+      - *build_rust
+      - *gen_project
+      - name: Apply provisioning profiles to the project
+        script: xcode-project use-profiles
+      - name: Build signed .ipa
+        script: |
+          xcode-project build-ipa \
+            --project Loupe.xcodeproj \
+            --scheme Loupe
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - hamanii.alraee@gmail.com
+        notify:
+          success: true
+          failure: true

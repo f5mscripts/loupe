@@ -1,0 +1,2 @@
+# Do not commit the gadget binary; fetch it per the README.
+FridaGadget.dylib

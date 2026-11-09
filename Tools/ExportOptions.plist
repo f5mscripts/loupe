@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Export method for a signed .ipa from your paid account.
+         Use "development" for a dev-signed build you sideload yourself,
+         or "ad-hoc" for registered-device distribution. -->
+    <key>method</key>
+    <string>development</string>
+
+    <!-- Your 10-char Team ID (same as DEVELOPMENT_TEAM in project.yml). -->
+    <key>teamID</key>
+    <string>YOUR_TEAM_ID</string>
+
+    <key>signingStyle</key>
+    <string>automatic</string>
+
+    <key>stripSwiftSymbols</key>
+    <true/>
+
+    <!-- Keep the embedded FridaGadget + FFI framework signed with the app. -->
+    <key>compileBitcode</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <false/>
+</dict>
+</plist>

@@ -1,0 +1,17 @@
+# Xcode / xcodegen
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+
+# Build output
+build/
+rust/target/
+
+# macOS
+.DS_Store
+
+# Secrets / local config
+*.mobileprovision
+*.p12
+local.xcconfig
