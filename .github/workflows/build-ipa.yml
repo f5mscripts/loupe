@@ -24,7 +24,7 @@ jobs:
   # ---------------------------------------------------------------------------
   unsigned:
     name: Unsigned IPA
-    runs-on: macos-14   # bump to the image that ships Xcode 27 when available
+    runs-on: macos-15   # Apple-Silicon runner (needs a public repo); bump to the Xcode 27 image when available
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +67,7 @@ jobs:
             -project Loupe.xcodeproj -scheme Loupe \
             -destination 'generic/platform=iOS' \
             -archivePath build/Loupe.xcarchive \
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 SWIFT_STRICT_CONCURRENCY=minimal \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
       - name: Package Payload .ipa
@@ -88,7 +89,7 @@ jobs:
     # Enable by setting repo variable ENABLE_SIGNED_BUILD=true (Settings → Secrets
     # and variables → Actions → Variables) and the secrets referenced below.
     if: ${{ vars.ENABLE_SIGNED_BUILD == 'true' }}
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     env:
       TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -147,6 +148,7 @@ jobs:
             -project Loupe.xcodeproj -scheme Loupe \
             -destination 'generic/platform=iOS' \
             -archivePath build/Loupe.xcarchive \
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 SWIFT_STRICT_CONCURRENCY=minimal \
             DEVELOPMENT_TEAM="${TEAM_ID}"
 
       - name: Export signed .ipa
