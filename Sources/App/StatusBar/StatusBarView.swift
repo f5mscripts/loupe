@@ -1,31 +1,29 @@
 import SwiftUI
 
-/// Persistent bottom status bar: Paired • DDI • Tunnel • Target • Capturing.
+/// Persistent bottom status bar (StikJIT workflow): Hook • Target • Flows.
 struct StatusBarView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         HStack(spacing: 14) {
-            pill("Paired", model.device.prereqs.paired.isOK)
-            pill("DDI", model.device.prereqs.ddi.isOK)
-            pill("Tunnel", model.device.prereqs.tunnel.isOK)
+            HStack(spacing: 4) {
+                Image(systemName: hookGlyph).foregroundStyle(hookColor).font(.caption2)
+                Text(hookLabel)
+            }
 
             Divider().frame(height: 14)
 
             HStack(spacing: 4) {
                 Image(systemName: "target").font(.caption2)
-                Text(model.store.focusedProfile?.name ?? "No target")
-                    .lineLimit(1)
+                Text(model.store.focusedProfile?.name ?? "No target").lineLimit(1)
             }
             .foregroundStyle(model.store.focusedProfile == nil ? .secondary : .primary)
 
             Spacer()
 
             HStack(spacing: 4) {
-                Circle()
-                    .fill(model.isCapturing ? .red : .gray)
-                    .frame(width: 7, height: 7)
-                Text(model.isCapturing ? "Capturing" : "Idle")
+                Image(systemName: "list.bullet.rectangle").font(.caption2)
+                Text("\(model.store.visibleFlows.count) flows")
             }
         }
         .font(.caption.monospaced())
@@ -35,11 +33,26 @@ struct StatusBarView: View {
         .overlay(Divider(), alignment: .top)
     }
 
-    private func pill(_ label: String, _ ok: Bool) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: ok ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(ok ? .green : .secondary)
-            Text(label)
+    private var hookLabel: String {
+        switch model.frida.status {
+        case .connected: "Hook ✓"
+        case .connecting: "Hook …"
+        case .error: "Hook ✗"
+        case .disconnected: "Hook —"
+        }
+    }
+    private var hookGlyph: String {
+        switch model.frida.status {
+        case .connected: "scope"
+        default: "scope"
+        }
+    }
+    private var hookColor: Color {
+        switch model.frida.status {
+        case .connected: .green
+        case .connecting: .orange
+        case .error: .red
+        case .disconnected: .secondary
         }
     }
 }

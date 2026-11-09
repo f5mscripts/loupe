@@ -1,38 +1,60 @@
 import SwiftUI
 
-/// App picker: list installed apps, tag instrumented vs capture-only, set FOCUS,
-/// enable JIT (M2), and connect the instrument (M4).
+/// App picker (StikJIT workflow).
+///
+/// Listing installed apps needs the on-device tunnel (not in this build), so you
+/// add your target manually: its bundle id, and whether it's instrumented (your own
+/// app, or re-signed with the gadget). FOCUS sets the active target; Connect opens
+/// the Frida hook. JIT is handled by StikJIT, not here.
 struct AppsView: View {
     @Environment(AppModel.self) private var model
 
+    @State private var newBundleId = ""
+    @State private var newName = ""
+    @State private var newInstrumented = true
+
     private var apps: [AppProfile] {
-        // Merge discovered apps with saved profiles (keep instrument/jit flags).
-        let saved = Dictionary(uniqueKeysWithValues: model.store.profiles.map { ($0.bundleId, $0) })
-        return model.device.installedApps.map { saved[$0.bundleId] ?? $0 }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        model.store.profiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     var body: some View {
         NavigationStack {
             List {
-                if apps.isEmpty {
-                    ContentUnavailableView(
-                        "No apps loaded",
-                        systemImage: "square.grid.2x2",
-                        description: Text("Bring up the tunnel in Setup, then refresh.")
-                    )
+                Section("Add a target") {
+                    TextField("Bundle id (e.g. com.example.target)", text: $newBundleId)
+                        .autocorrectionDisabled().textInputAutocapitalization(.never)
+                        .font(.callout.monospaced())
+                    TextField("Display name", text: $newName)
+                    Toggle("Instrumented (own app / re-signed with gadget)", isOn: $newInstrumented)
+                    Button {
+                        let id = newBundleId.trimmingCharacters(in: .whitespaces)
+                        guard !id.isEmpty else { return }
+                        var p = AppProfile(bundleId: id,
+                                           name: newName.isEmpty ? id : newName,
+                                           instrumented: newInstrumented,
+                                           colorTag: .green)
+                        p.gadgetPresent = newInstrumented
+                        model.store.upsertProfile(p)
+                        model.store.setFocus(id)
+                        newBundleId = ""; newName = ""
+                    } label: { Label("Add target", systemImage: "plus.circle.fill") }
+                        .disabled(newBundleId.trimmingCharacters(in: .whitespaces).isEmpty)
+                } footer: {
+                    Text("Capture-only apps can't be added here — without the tunnel, Loupe only works with instrumented targets (the Frida layer). App Store apps you haven't re-signed cannot be hooked on stock iOS.")
                 }
-                ForEach(apps) { app in
-                    AppRow(app: app)
+
+                Section("Targets") {
+                    if apps.isEmpty {
+                        Text("No targets yet. Add one above.").foregroundStyle(.secondary)
+                    }
+                    ForEach(apps) { app in AppRow(app: app) }
+                        .onDelete { idx in
+                            let ids = idx.map { apps[$0].bundleId }
+                            model.store.profiles.removeAll { ids.contains($0.bundleId) }
+                        }
                 }
             }
             .navigationTitle("Apps")
-            .toolbar {
-                Button {
-                    Task { await model.device.refreshApps() }
-                } label: { Image(systemName: "arrow.clockwise") }
-                .disabled(!model.device.isReady)
-            }
         }
     }
 }
@@ -40,13 +62,12 @@ struct AppsView: View {
 private struct AppRow: View {
     @Environment(AppModel.self) private var model
     let app: AppProfile
-
     private var isFocused: Bool { model.store.focusedBundleId == app.bundleId }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Circle().fill(tagColor).frame(width: 10, height: 10)
+                Circle().fill(.green).frame(width: 10, height: 10)
                 VStack(alignment: .leading) {
                     Text(app.name).font(.headline)
                     Text(app.bundleId).font(.caption.monospaced()).foregroundStyle(.secondary)
@@ -54,65 +75,29 @@ private struct AppRow: View {
                 Spacer()
                 if isFocused { Image(systemName: "target").foregroundStyle(.green) }
             }
-
             HStack(spacing: 6) {
-                badge(app.canInstrument ? "Instrumented" : "Capture-only",
+                badge(app.canInstrument ? "Instrumented" : "Not instrumented",
                       color: app.canInstrument ? .green : .gray)
-                if app.jitEnabled { badge("JIT", color: .blue) }
-                if app.gadgetPresent { badge("Gadget", color: .purple) }
             }
-
             HStack {
                 Button(isFocused ? "Focused" : "Focus") {
                     model.store.setFocus(isFocused ? nil : app.bundleId)
-                }
-                .buttonStyle(.bordered)
-                .disabled(isFocused)
-
-                Button("Enable JIT") {
-                    Task {
-                        let ok = await model.device.enableJIT(bundleId: app.bundleId)
-                        if ok {
-                            var p = app; p.jitEnabled = true
-                            model.store.upsertProfile(p)
-                        }
-                    }
-                }
-                .buttonStyle(.bordered)
-                .disabled(!model.device.isReady)
+                }.buttonStyle(.bordered).disabled(isFocused)
 
                 if app.canInstrument {
                     Button("Connect hook") {
                         model.store.setFocus(app.bundleId)
                         model.connectInstrument()
-                    }
-                    .buttonStyle(.borderedProminent)
+                    }.buttonStyle(.borderedProminent)
                 }
-            }
-            .font(.caption)
+            }.font(.caption)
         }
         .padding(.vertical, 4)
-        .swipeActions {
-            Button(app.instrumented ? "Unmark" : "Mark instrumented") {
-                var p = app; p.instrumented.toggle()
-                model.store.upsertProfile(p)
-            }.tint(.purple)
-        }
-    }
-
-    private var tagColor: Color {
-        switch app.colorTag {
-        case .blue: .blue; case .green: .green; case .orange: .orange
-        case .purple: .purple; case .red: .red; case .gray: .gray
-        }
     }
 
     private func badge(_ t: String, color: Color) -> some View {
-        Text(t)
-            .font(.caption2.bold())
+        Text(t).font(.caption2.bold())
             .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(color.opacity(0.2))
-            .foregroundStyle(color)
-            .clipShape(Capsule())
+            .background(color.opacity(0.2)).foregroundStyle(color).clipShape(Capsule())
     }
 }

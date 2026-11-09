@@ -12,6 +12,28 @@ instead of a network proxy.
 
 ---
 
+## Runtime model: Loupe + StikJIT
+
+Loupe does **not** implement on-device pairing/tunnel/JIT itself. That hard part is
+delegated to **[StikJIT](https://github.com/StephenDev0/StikJIT)**, which already
+does the iOS 17+ RSD tunnel + debugserver JIT robustly. Loupe focuses on its real
+value — the **Frida see / edit / resend layer** — which is pure in-app loopback
+networking and needs no native `idevice` layer.
+
+**Workflow:**
+1. **StikJIT** — import your pairing file there, enable **JIT** for your target app.
+2. **Target carries the Frida gadget** — your own app (link `FridaGadget`) or a
+   third-party app you re-signed with it (`Tools/resign-with-gadget.sh`).
+3. **Loupe** — add the target (Apps tab), launch it, then **Connect hook**. The
+   gadget's `interceptor.js` opens a loopback listener and Loupe streams full
+   decrypted request/response pairs — inspect, edit, breakpoint, map-local, resend.
+
+**Not in this build:** pcapd passive capture (needs the on-device tunnel) and app
+listing/JIT inside Loupe (delegated to StikJIT). The Frida hook *is* the
+see-and-edit layer, so the capture metadata layer isn't required to use the tool.
+
+---
+
 ## Why this architecture (read this before touching the code)
 
 Loupe is built on the iOS 27 **on-device pairing** mechanism (StikPair-style

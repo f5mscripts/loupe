@@ -29,13 +29,10 @@ final class AppModel {
     var isCapturing: Bool { store.isCapturing }
 
     func toggleCapture() {
-        if pcapd.isRunning { pcapd.stop(); return }
-        guard let provider = device.providerHandle else {
-            device.lastMessage = "Finish Setup (tunnel) before capturing."
-            return
-        }
-        do { try pcapd.start(provider: provider) }
-        catch { device.lastMessage = "Capture failed: \(error.localizedDescription)" }
+        // pcapd passive capture needs the on-device tunnel, which Loupe no longer owns
+        // (JIT/tunnel are delegated to StikJIT). The Frida hook already streams full
+        // decrypted request/response pairs — that's the see-and-edit layer.
+        device.lastMessage = "pcapd passive capture needs the on-device tunnel (not in this build). Connect the Frida hook instead — it streams full decrypted flows."
     }
 
     // MARK: - Instrument control (M4)
