@@ -36,10 +36,8 @@ jobs:
           sudo xcode-select -p
           xcodebuild -version
 
-      - name: Install toolchain (xcodegen, cbindgen, Rust iOS targets)
-        run: |
-          brew install xcodegen cbindgen
-          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+      - name: Install toolchain (xcodegen)
+        run: brew install xcodegen
 
       - name: Ensure FridaGadget.dylib
         env:
@@ -54,9 +52,6 @@ jobs:
             fi
           fi
           cp Sources/Instrument/hooks/interceptor.js Resources/FridaGadget/interceptor.js || true
-
-      - name: Build Rust FFI (idevice -> LoupeFFI.xcframework)
-        run: ./build-rust.sh
 
       - name: Generate Xcode project
         run: xcodegen generate
@@ -100,9 +95,7 @@ jobs:
         run: xcodebuild -version
 
       - name: Install toolchain
-        run: |
-          brew install xcodegen cbindgen
-          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+        run: brew install xcodegen
 
       - name: Import signing certificate
         uses: apple-actions/import-codesign-certs@v3
@@ -135,9 +128,6 @@ jobs:
         run: |
           /usr/bin/sed -i '' "s/YOUR_TEAM_ID/${TEAM_ID}/g" project.yml
           /usr/bin/sed -i '' "s/YOUR_TEAM_ID/${TEAM_ID}/g" Tools/ExportOptions.plist
-
-      - name: Build Rust FFI
-        run: ./build-rust.sh
 
       - name: Generate Xcode project
         run: xcodegen generate

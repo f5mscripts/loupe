@@ -34,22 +34,11 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.loupe
         INFOPLIST_FILE: Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: Resources/Loupe.entitlements
-        # Vend the Rust FFI xcframework (produced by build-rust.sh).
-        FRAMEWORK_SEARCH_PATHS:
-          - $(inherited)
-          - $(PROJECT_DIR)/build/xcframework
+        # The Rust device-services FFI (LoupeFFI.xcframework) is OPTIONAL and is NOT
+        # required to build. The Swift compiles without it via `#if canImport(LoupeFFI)`
+        # (device calls return .notWired). To wire real pairing/JIT/pcapd: run
+        # ./build-rust.sh, then re-add the dependency below and the search path:
+        #     FRAMEWORK_SEARCH_PATHS: [ $(inherited), $(PROJECT_DIR)/build/xcframework ]
+        #     dependencies: [ { framework: build/xcframework/LoupeFFI.xcframework, embed: true, codeSign: true } ]
         OTHER_LDFLAGS:
           - $(inherited)
-    dependencies:
-      # Built by ./build-rust.sh before `xcodegen generate` / archiving.
-      - framework: build/xcframework/LoupeFFI.xcframework
-        embed: true
-        codeSign: true
-    # Make the Rust build a pre-action so Xcode rebuilds the FFI as needed.
-    preBuildScripts:
-      - name: Build Rust FFI (idevice)
-        script: |
-          if [ ! -d "$PROJECT_DIR/build/xcframework/LoupeFFI.xcframework" ]; then
-            "$PROJECT_DIR/build-rust.sh"
-          fi
-        basedOnDependencyAnalysis: false
