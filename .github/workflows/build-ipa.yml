@@ -36,8 +36,8 @@ jobs:
           sudo xcode-select -p
           xcodebuild -version
 
-      - name: Install toolchain (xcodegen)
-        run: brew install xcodegen
+      - name: Install toolchain (xcodegen, xcbeautify)
+        run: brew install xcodegen xcbeautify
 
       - name: Ensure FridaGadget.dylib
         env:
@@ -58,12 +58,14 @@ jobs:
 
       - name: Archive (no signing)
         run: |
+          set -o pipefail
           xcodebuild archive \
             -project Loupe.xcodeproj -scheme Loupe \
             -destination 'generic/platform=iOS' \
             -archivePath build/Loupe.xcarchive \
-            IPHONEOS_DEPLOYMENT_TARGET=17.0 SWIFT_STRICT_CONCURRENCY=minimal \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 SWIFT_VERSION=5.0 SWIFT_STRICT_CONCURRENCY=minimal \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | xcbeautify --renderer github-actions
 
       - name: Package Payload .ipa
         run: |
@@ -95,7 +97,7 @@ jobs:
         run: xcodebuild -version
 
       - name: Install toolchain
-        run: brew install xcodegen
+        run: brew install xcodegen xcbeautify
 
       - name: Import signing certificate
         uses: apple-actions/import-codesign-certs@v3
@@ -134,12 +136,14 @@ jobs:
 
       - name: Archive (signed)
         run: |
+          set -o pipefail
           xcodebuild archive \
             -project Loupe.xcodeproj -scheme Loupe \
             -destination 'generic/platform=iOS' \
             -archivePath build/Loupe.xcarchive \
-            IPHONEOS_DEPLOYMENT_TARGET=17.0 SWIFT_STRICT_CONCURRENCY=minimal \
-            DEVELOPMENT_TEAM="${TEAM_ID}"
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 SWIFT_VERSION=5.0 SWIFT_STRICT_CONCURRENCY=minimal \
+            DEVELOPMENT_TEAM="${TEAM_ID}" \
+            | xcbeautify --renderer github-actions
 
       - name: Export signed .ipa
         run: |
