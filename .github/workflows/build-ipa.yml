@@ -51,7 +51,6 @@ jobs:
               echo "::warning::FridaGadget.dylib missing — building an IPA without the hook binary (UI only; instrumentation inert). Commit it or set FRIDA_GADGET_URL to include it."
             fi
           fi
-          cp Sources/Instrument/hooks/interceptor.js Resources/FridaGadget/interceptor.js || true
 
       - name: Generate Xcode project
         run: xcodegen generate
@@ -124,7 +123,6 @@ jobs:
               echo "::warning::FridaGadget.dylib missing — building without the hook binary."
             fi
           fi
-          cp Sources/Instrument/hooks/interceptor.js Resources/FridaGadget/interceptor.js || true
 
       - name: Inject Team ID into project.yml
         run: |
