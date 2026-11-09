@@ -31,7 +31,7 @@ actor FlowBuilder {
             existing.bytesOut += (p.dstPort == existing.dstPort) ? bytes : 0
             existing.bytesIn += (p.srcPort == existing.dstPort) ? bytes : 0
             existing.endedAt = now
-            if existing.host == existing.dstIP, host != p.dstIP { existing.host = host } // upgrade IP→SNI
+            if existing.host == p.dstIP, host != p.dstIP { existing.host = host } // upgrade IP→SNI
             open[key] = existing
             return existing
         }
