@@ -25,10 +25,10 @@ final class PcapdCapture {
         // Pass `self` as the opaque context to the C callback via Unmanaged.
         let ctx = Unmanaged.passRetained(self).toOpaque()
         ctxToken = ctx
-        var cap: UnsafeMutablePointer<LoupeCapture>?
+        var cap: OpaquePointer?
 
         let code = loupe_capture_start(
-            UnsafeMutablePointer<LoupeProvider>(provider),
+            provider,
             pcapTrampoline,     // extern "C" fn pointer
             ctx,
             &cap
@@ -38,7 +38,7 @@ final class PcapdCapture {
             ctxToken = nil
             throw DeviceError.pcapd
         }
-        captureHandle = OpaquePointer(cap)
+        captureHandle = cap
         store?.isCapturing = true
 
         evictTask = Task { [builder] in
@@ -55,7 +55,7 @@ final class PcapdCapture {
     func stop() {
         #if canImport(LoupeFFI)
         if let h = captureHandle {
-            loupe_capture_stop(UnsafeMutablePointer<LoupeCapture>(h))
+            loupe_capture_stop(h)
             captureHandle = nil
         }
         if let ctx = ctxToken {

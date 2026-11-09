@@ -21,7 +21,7 @@ final class DeviceController {
         pairingIdentifier = nil
         do {
             try PairingStore.shared.importPairing(data)           // validates (FFI) + stores
-            let id = await runOffMain { DeviceBridge.shared.pairingIdentifier() }
+            let id = try await runOffMain { DeviceBridge.shared.pairingIdentifier() }
             pairingIdentifier = id
             pairingValid = .ok
             lastMessage = "Pairing file valid. Identifier: \(id ?? "—")"

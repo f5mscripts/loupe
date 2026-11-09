@@ -70,7 +70,7 @@ struct DeviceBridge {
     func validatePairing(_ data: Data) throws {
         #if canImport(LoupeFFI)
         try data.withUnsafeBytes { raw in
-            try check(loupe_pairing_validate(raw.bindMemory(to: UInt8.self).baseAddress, data.count))
+            try check(loupe_pairing_validate(raw.bindMemory(to: UInt8.self).baseAddress, UInt(data.count)))
         }
         #else
         throw DeviceError.notWired
@@ -89,15 +89,16 @@ struct DeviceBridge {
     }
 
     /// Starts the tunnel/provider and returns an opaque handle. The caller owns it.
+    /// `LoupeProvider` is an incomplete C struct, so Swift represents it as OpaquePointer.
     func startProvider(pairing data: Data) throws -> OpaquePointer {
         #if canImport(LoupeFFI)
-        var provider: UnsafeMutablePointer<LoupeProvider>?
+        var provider: OpaquePointer?
         try data.withUnsafeBytes { raw in
             try check(loupe_provider_start(
-                raw.bindMemory(to: UInt8.self).baseAddress, data.count, &provider))
+                raw.bindMemory(to: UInt8.self).baseAddress, UInt(data.count), &provider))
         }
         guard let provider else { throw DeviceError.tunnel }
-        return OpaquePointer(provider)
+        return provider
         #else
         throw DeviceError.notWired
         #endif
@@ -105,14 +106,14 @@ struct DeviceBridge {
 
     func freeProvider(_ p: OpaquePointer) {
         #if canImport(LoupeFFI)
-        loupe_provider_free(UnsafeMutablePointer<LoupeProvider>(p))
+        loupe_provider_free(p)
         #endif
     }
 
     func developerModeEnabled(_ p: OpaquePointer) throws -> Bool {
         #if canImport(LoupeFFI)
         var out: Int32 = 0
-        try check(loupe_developer_mode_enabled(UnsafeMutablePointer<LoupeProvider>(p), &out))
+        try check(loupe_developer_mode_enabled(p, &out))
         return out != 0
         #else
         throw DeviceError.notWired
@@ -121,7 +122,7 @@ struct DeviceBridge {
 
     func mountDDI(_ p: OpaquePointer) throws {
         #if canImport(LoupeFFI)
-        try check(loupe_mount_ddi(UnsafeMutablePointer<LoupeProvider>(p)))
+        try check(loupe_mount_ddi(p))
         #else
         throw DeviceError.notWired
         #endif
@@ -131,7 +132,7 @@ struct DeviceBridge {
 
     func enableJIT(_ p: OpaquePointer, bundleId: String) throws {
         #if canImport(LoupeFFI)
-        try check(loupe_jit_enable(UnsafeMutablePointer<LoupeProvider>(p), bundleId))
+        try check(loupe_jit_enable(p, bundleId))
         #else
         throw DeviceError.notWired
         #endif
@@ -142,7 +143,7 @@ struct DeviceBridge {
     func listApps(_ p: OpaquePointer) throws -> [(bundleId: String, name: String)] {
         #if canImport(LoupeFFI)
         var out: UnsafeMutablePointer<CChar>?
-        try check(loupe_list_apps(UnsafeMutablePointer<LoupeProvider>(p), &out))
+        try check(loupe_list_apps(p, &out))
         guard let out else { return [] }
         defer { loupe_string_free(out) }
         let json = String(cString: out)
@@ -157,7 +158,7 @@ struct DeviceBridge {
 
     func installIPA(_ p: OpaquePointer, path: String) throws {
         #if canImport(LoupeFFI)
-        try check(loupe_install_ipa(UnsafeMutablePointer<LoupeProvider>(p), path))
+        try check(loupe_install_ipa(p, path))
         #else
         throw DeviceError.notWired
         #endif
