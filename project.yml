@@ -23,12 +23,16 @@ targets:
     type: application
     platform: iOS
     sources:
+      # Includes all Swift + bundles interceptor.js (xcodegen adds non-source files
+      # to the resources phase automatically — no separate entry, or it duplicates).
       - path: Sources
       - path: Resources
         buildPhase: resources
-      # The Frida hook script ships inside the app so the gadget can load it by path.
-      - path: Sources/Instrument/hooks/interceptor.js
-        buildPhase: resources
+        excludes:
+          # These are referenced by build settings, not copied as bundle resources
+          # (copying them collides with INFOPLIST_FILE / CODE_SIGN_ENTITLEMENTS).
+          - Info.plist
+          - Loupe.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.loupe
