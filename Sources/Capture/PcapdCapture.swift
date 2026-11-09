@@ -103,10 +103,10 @@ final class PcapdCapture {
 
 #if canImport(LoupeFFI)
 /// C ABI trampoline: recovers the PcapdCapture from `ctx` and forwards the record.
-private func pcapTrampoline(ctx: UnsafeMutableRawPointer?, data: UnsafePointer<UInt8>?, len: Int) {
+private func pcapTrampoline(ctx: UnsafeMutableRawPointer?, data: UnsafePointer<UInt8>?, len: UInt) {
     guard let ctx, let data else { return }
     let obj = Unmanaged<PcapdCapture>.fromOpaque(ctx).takeUnretainedValue()
-    let record = Array(UnsafeBufferPointer(start: data, count: len))
+    let record = Array(UnsafeBufferPointer(start: data, count: Int(len)))
     Task { @MainActor in obj.handleRecord(record) }
 }
 #endif
