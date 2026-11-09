@@ -11,6 +11,26 @@ final class DeviceController {
     private(set) var installedApps: [AppProfile] = []
     var lastMessage: String?
 
+    // M1: real pairing-file validation via the idevice FFI.
+    var pairingValid: PrereqState = .unknown
+    var pairingIdentifier: String?
+
+    /// Validate + store an RP pairing file. Real: parses via idevice's RpPairingFile.
+    func validatePairingFile(_ data: Data) async {
+        pairingValid = .inProgress
+        pairingIdentifier = nil
+        do {
+            try PairingStore.shared.importPairing(data)           // validates (FFI) + stores
+            let id = await runOffMain { DeviceBridge.shared.pairingIdentifier() }
+            pairingIdentifier = id
+            pairingValid = .ok
+            lastMessage = "Pairing file valid. Identifier: \(id ?? "—")"
+        } catch {
+            pairingValid = .failed(error.localizedDescription)
+            lastMessage = "Pairing invalid: \(error.localizedDescription)"
+        }
+    }
+
     // nonisolated(unsafe): all real access is on the main actor, but `deinit` is
     // nonisolated and must free the handle. We take responsibility for that one use.
     nonisolated(unsafe) private var provider: OpaquePointer?

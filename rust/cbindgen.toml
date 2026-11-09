@@ -6,8 +6,8 @@ tab_width = 4
 documentation = true
 style = "type"
 
-[export]
-prefix = "Loupe"
+# No export.prefix — our symbols are already loupe_* / Loupe* and #[no_mangle];
+# a prefix would rename the header declarations and break linking.
 
 [parse]
 parse_deps = false

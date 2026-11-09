@@ -39,16 +39,17 @@ struct DeviceBridge {
 
     #if canImport(LoupeFFI)
     private func map(_ code: Int32) -> DeviceError? {
-        switch code {
-        case LOUPE_OK: return nil
-        case LOUPE_ERR_BAD_ARG: return .badArg
-        case LOUPE_ERR_PAIRING: return .pairing
-        case LOUPE_ERR_TUNNEL:  return .tunnel
-        case LOUPE_ERR_DDI:     return .ddi
-        case LOUPE_ERR_JIT:     return .jit
-        case LOUPE_ERR_PCAPD:   return .pcapd
-        case LOUPE_ERR_INSTALL: return .install
-        case LOUPE_ERR_NOT_WIRED: return .notWired
+        // C integer #defines import as Int; normalize both sides to Int.
+        switch Int(code) {
+        case Int(LOUPE_OK): return nil
+        case Int(LOUPE_ERR_BAD_ARG): return .badArg
+        case Int(LOUPE_ERR_PAIRING): return .pairing
+        case Int(LOUPE_ERR_TUNNEL):  return .tunnel
+        case Int(LOUPE_ERR_DDI):     return .ddi
+        case Int(LOUPE_ERR_JIT):     return .jit
+        case Int(LOUPE_ERR_PCAPD):   return .pcapd
+        case Int(LOUPE_ERR_INSTALL): return .install
+        case Int(LOUPE_ERR_NOT_WIRED): return .notWired
         default:
             return .generic(lastError())
         }
@@ -73,6 +74,17 @@ struct DeviceBridge {
         }
         #else
         throw DeviceError.notWired
+        #endif
+    }
+
+    /// After a successful validatePairing, the RP pairing file's identifier (UUID).
+    func pairingIdentifier() -> String? {
+        #if canImport(LoupeFFI)
+        guard let c = loupe_pairing_identifier() else { return nil }
+        let s = String(cString: c)
+        return s.isEmpty ? nil : s
+        #else
+        return nil
         #endif
     }
 

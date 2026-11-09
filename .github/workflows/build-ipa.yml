@@ -37,7 +37,9 @@ jobs:
           xcodebuild -version
 
       - name: Install toolchain (xcodegen, xcbeautify)
-        run: brew install xcodegen xcbeautify
+        run: |
+          brew install xcodegen xcbeautify cbindgen
+          rustup target add aarch64-apple-ios
 
       - name: Ensure FridaGadget.dylib
         env:
@@ -50,6 +52,16 @@ jobs:
             else
               echo "::warning::FridaGadget.dylib missing — building an IPA without the hook binary (UI only; instrumentation inert). Commit it or set FRIDA_GADGET_URL to include it."
             fi
+          fi
+
+      - name: Build Rust FFI (idevice -> LoupeFFI.xcframework)
+        run: |
+          set -o pipefail
+          if ! ./build-rust.sh 2>&1 | tee /tmp/rust.log; then
+            grep -nE 'error\[|error:|cannot find|unresolved|failed to|not found' /tmp/rust.log | head -40 | while IFS= read -r line; do
+              echo "::error::rust: $line"
+            done
+            exit 1
           fi
 
       - name: Generate Xcode project
@@ -96,7 +108,9 @@ jobs:
         run: xcodebuild -version
 
       - name: Install toolchain
-        run: brew install xcodegen xcbeautify
+        run: |
+          brew install xcodegen xcbeautify cbindgen
+          rustup target add aarch64-apple-ios
 
       - name: Import signing certificate
         uses: apple-actions/import-codesign-certs@v3
@@ -128,6 +142,16 @@ jobs:
         run: |
           /usr/bin/sed -i '' "s/YOUR_TEAM_ID/${TEAM_ID}/g" project.yml
           /usr/bin/sed -i '' "s/YOUR_TEAM_ID/${TEAM_ID}/g" Tools/ExportOptions.plist
+
+      - name: Build Rust FFI (idevice -> LoupeFFI.xcframework)
+        run: |
+          set -o pipefail
+          if ! ./build-rust.sh 2>&1 | tee /tmp/rust.log; then
+            grep -nE 'error\[|error:|cannot find|unresolved|failed to|not found' /tmp/rust.log | head -40 | while IFS= read -r line; do
+              echo "::error::rust: $line"
+            done
+            exit 1
+          fi
 
       - name: Generate Xcode project
         run: xcodegen generate

@@ -33,7 +33,7 @@ final class PcapdCapture {
             ctx,
             &cap
         )
-        guard code == LOUPE_OK, let cap else {
+        guard Int(code) == Int(LOUPE_OK), let cap else {
             Unmanaged<PcapdCapture>.fromOpaque(ctx).release()
             ctxToken = nil
             throw DeviceError.pcapd
