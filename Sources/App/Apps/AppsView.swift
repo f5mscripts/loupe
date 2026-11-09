@@ -20,7 +20,7 @@ struct AppsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Add a target") {
+                Section {
                     TextField("Bundle id (e.g. com.example.target)", text: $newBundleId)
                         .autocorrectionDisabled().textInputAutocapitalization(.never)
                         .font(.callout.monospaced())
@@ -39,6 +39,8 @@ struct AppsView: View {
                         newBundleId = ""; newName = ""
                     } label: { Label("Add target", systemImage: "plus.circle.fill") }
                         .disabled(newBundleId.trimmingCharacters(in: .whitespaces).isEmpty)
+                } header: {
+                    Text("Add a target")
                 } footer: {
                     Text("Capture-only apps can't be added here — without the tunnel, Loupe only works with instrumented targets (the Frida layer). App Store apps you haven't re-signed cannot be hooked on stock iOS.")
                 }
