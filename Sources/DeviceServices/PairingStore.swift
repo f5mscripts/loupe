@@ -7,9 +7,14 @@ struct PairingStore {
 
     private let fileName = "pairing.plist"
 
+    /// The app's own Application Support directory (no app group — Loupe has no
+    /// extension, and app groups aren't provisioned for sideloaded builds).
     private var containerURL: URL? {
-        FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: "group.com.example.loupe")
+        let fm = FileManager.default
+        guard let dir = try? fm.url(for: .applicationSupportDirectory,
+                                    in: .userDomainMask, appropriateFor: nil, create: true)
+        else { return nil }
+        return dir
     }
 
     private var pairingURL: URL? {

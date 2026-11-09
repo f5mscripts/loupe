@@ -2,21 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- App group: pairing file + rules/profiles persistence. Create this group id
-         in your Apple Developer account and keep it in sync with the code. -->
-    <key>com.apple.security.application-groups</key>
-    <array>
-        <string>group.com.example.loupe</string>
-    </array>
-
-    <!-- Loupe uses JIT itself (the device-services tunnel + FFI benefit from it).
-         Requires the "Allow Execution of JIT-compiled Code" capability / a profile
-         that grants it. On stock iOS this pairs with Developer Mode. -->
-    <key>com.apple.security.cs.allow-jit</key>
-    <true/>
-
-    <!-- Needed so NWConnection may reach the loopback listener opened by the gadget. -->
-    <key>com.apple.developer.networking.multicast</key>
-    <true/>
+    <!-- Intentionally minimal for sideload compatibility.
+         - No app group: Loupe has no extension; it stores in its own sandbox.
+         - No multicast: the gadget channel is loopback TCP (needs only the
+           NSLocalNetworkUsageDescription in Info.plist, not an entitlement).
+         Add capabilities here only once they're provisioned in your signing profile. -->
 </dict>
 </plist>

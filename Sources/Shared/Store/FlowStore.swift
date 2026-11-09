@@ -79,7 +79,8 @@ final class FlowStore {
 
     // MARK: - Persistence (app group)
 
-    private static let suite = UserDefaults(suiteName: "group.com.example.loupe") ?? .standard
+    // App's own defaults (no app group — not provisioned for sideloaded builds).
+    private static let suite = UserDefaults.standard
     private static let rulesKey = "loupe.rules"
     private static let profilesKey = "loupe.profiles"
 
