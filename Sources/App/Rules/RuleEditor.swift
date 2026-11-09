@@ -52,7 +52,7 @@ struct RuleEditor: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { onSave(rule); dismiss() }
                 }
-                ToolbarItem(placement: .cancelAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             }
         }
     }
