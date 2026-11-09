@@ -17,6 +17,18 @@ struct AppsView: View {
         model.store.profiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    private var hookConnected: Bool {
+        if case .connected = model.frida.status { return true }; return false
+    }
+    private var hookStatus: String {
+        switch model.frida.status {
+        case .disconnected: "disconnected"
+        case .connecting: "connecting…"
+        case .connected(let pid): "connected (pid \(pid))"
+        case .error: "failed"
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -54,6 +66,22 @@ struct AppsView: View {
                             let ids = idx.map { apps[$0].bundleId }
                             model.store.profiles.removeAll { ids.contains($0.bundleId) }
                         }
+                }
+
+                Section {
+                    HStack {
+                        Text("Hook")
+                        Spacer()
+                        Text(hookStatus).font(.caption.monospaced())
+                            .foregroundStyle(hookConnected ? .green : .secondary)
+                    }
+                    if let msg = model.device.lastMessage {
+                        Text(msg).font(.caption).foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Connection")
+                } footer: {
+                    Text("“Connect hook” opens a loopback connection to a Frida gadget running INSIDE the target. It only succeeds if that app was re-signed with FridaGadget.dylib, is currently running, and has JIT enabled (via StikJIT). Adding a bundle id here does NOT put a gadget in the app — that's the re-sign step (needs a Mac + decrypted IPA). App Store apps you haven't re-signed can't be hooked without a jailbreak.")
                 }
             }
             .navigationTitle("Apps")

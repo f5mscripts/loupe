@@ -16,6 +16,9 @@ final class FridaManager {
     private(set) var status: Status = .disconnected
     private(set) var pausedFlows: [Flow] = []   // breakpoints awaiting user decision
 
+    /// User-visible status messages (AppModel routes these to the status line).
+    var onMessage: ((String) -> Void)?
+
     private let channel = HookChannel()
     private weak var store: FlowStore?
     private var resendContinuations: [String: CheckedContinuation<Flow, Never>] = [:]
@@ -96,8 +99,11 @@ final class FridaManager {
         switch st {
         case .connecting: status = .connecting
         case .connected:  break // wait for hello to learn pid
-        case .failed(let m): status = .error(m)
-        case .idle: if case .connected = status { status = .disconnected }
+        case .failed(let m):
+            status = .error(m)
+            onMessage?("Hook connect failed: \(m). Is the target re-signed with FridaGadget, launched, and JIT-enabled?")
+        case .idle:
+            if case .connected = status { status = .disconnected; onMessage?("Hook disconnected.") }
         }
     }
 
@@ -107,6 +113,7 @@ final class FridaManager {
         case "hello":
             let pid = msg["pid"] as? Int ?? 0
             status = .connected(pid: pid)
+            onMessage?("Hook connected to gadget (pid \(pid)).")
             syncRules()
 
         case "flow":

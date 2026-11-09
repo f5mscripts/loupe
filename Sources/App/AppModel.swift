@@ -20,6 +20,7 @@ final class AppModel {
         self.frida = FridaManager(store: store)
         self.pcapd = PcapdCapture(store: store)
         self.consentAccepted = UserDefaults.standard.bool(forKey: "loupe.consent")
+        self.frida.onMessage = { [weak self] msg in self?.device.lastMessage = msg }
     }
 
     // MARK: - Capture control (M3)
@@ -40,9 +41,10 @@ final class AppModel {
     /// Connect to the focused app's in-process gadget. Only valid for instrumented apps.
     func connectInstrument() {
         guard let p = store.focusedProfile, p.canInstrument else {
-            device.lastMessage = "Focused app isn't instrumented. Re-sign it with the gadget, or pick your own app."
+            device.lastMessage = "No instrumented target focused. Add/focus a target marked instrumented first."
             return
         }
+        device.lastMessage = "Connecting to gadget at 127.0.0.1:\(GadgetConfig.port) for \(p.name)…"
         frida.connect()
     }
 }
